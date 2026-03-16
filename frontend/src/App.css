@@ -1,0 +1,117 @@
+/* ============================================
+   Business Connect — Design System
+   Font: Sora (headings) + DM Sans (body)
+   Theme: Deep navy sidebar, clean white content
+   ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');
+
+/* ── CSS Variables ── */
+:root {
+  /* Brand */
+  --brand-primary:    #2563eb;
+  --brand-dark:       #1d4ed8;
+  --brand-light:      #eff6ff;
+  --brand-accent:     #3b82f6;
+
+  /* Sidebar */
+  --sidebar-bg:       #0f172a;
+  --sidebar-text:     #94a3b8;
+  --sidebar-hover:    rgba(255,255,255,0.07);
+  --sidebar-active:   rgba(59,130,246,0.18);
+  --sidebar-active-text: #60a5fa;
+  --sidebar-border:   rgba(255,255,255,0.06);
+  --sidebar-width:    256px;
+
+  /* Content */
+  --bg-page:          #f1f5f9;
+  --bg-card:          #ffffff;
+  --bg-subtle:        #f8fafc;
+
+  /* Text */
+  --text-primary:     #0f172a;
+  --text-secondary:   #475569;
+  --text-muted:       #94a3b8;
+  --text-tiny:        #64748b;
+
+  /* Borders */
+  --border-light:     #e2e8f0;
+  --border-medium:    #cbd5e1;
+
+  /* Status */
+  --green:            #16a34a;
+  --green-bg:         #dcfce7;
+  --green-text:       #14532d;
+  --yellow:           #ca8a04;
+  --yellow-bg:        #fef9c3;
+  --yellow-text:      #713f12;
+  --red:              #dc2626;
+  --red-bg:           #fee2e2;
+  --red-text:         #7f1d1d;
+  --blue:             #2563eb;
+  --blue-bg:          #dbeafe;
+  --blue-text:        #1e3a8a;
+
+  /* Shadows */
+  --shadow-sm:        0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:        0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04);
+  --shadow-lg:        0 10px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+
+  /* Radius */
+  --radius-sm:        6px;
+  --radius-md:        10px;
+  --radius-lg:        14px;
+  --radius-xl:        20px;
+
+  /* Transition */
+  --transition:       all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'DM Sans', -apple-system, sans-serif;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Sora', sans-serif;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.page {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+/* ── Loading Spinner ── */
+.loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border-light);
+  border-top-color: var(--brand-primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

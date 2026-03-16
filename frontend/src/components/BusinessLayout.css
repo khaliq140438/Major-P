@@ -1,0 +1,366 @@
+/* ============================================
+   Business Layout — Dark Sidebar Design
+   ============================================ */
+
+/* ── Shell ── */
+.business-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg-page);
+}
+
+/* ── Sidebar ── */
+.business-sidebar {
+  width: var(--sidebar-width);
+  background: var(--sidebar-bg);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  height: 100vh;
+  left: 0;
+  top: 0;
+  z-index: 100;
+  overflow: hidden;
+  border-right: 1px solid var(--sidebar-border);
+}
+
+/* Logo area */
+.business-sidebar-logo {
+  padding: 1.5rem 1.25rem 1.25rem;
+  border-bottom: 1px solid var(--sidebar-border);
+}
+
+.business-sidebar-logo-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.business-sidebar-logo-title {
+  font-family: 'Sora', sans-serif;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.business-badge {
+  background: rgba(59,130,246,0.2);
+  color: #93c5fd;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  width: fit-content;
+  border: 1px solid rgba(59,130,246,0.25);
+}
+
+/* Nav */
+.business-sidebar-nav {
+  flex: 1;
+  padding: 1rem 0.875rem;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+}
+
+.business-sidebar-nav::-webkit-scrollbar { width: 3px; }
+.business-sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+.business-sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+.business-sidebar-nav li {
+  list-style: none;
+  margin-bottom: 0.1875rem;
+}
+
+.business-sidebar-link {
+  display: flex;
+  align-items: center;
+  padding: 0.5625rem 0.875rem;
+  color: var(--sidebar-text);
+  text-decoration: none;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  font-size: 0.875rem;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+  position: relative;
+  letter-spacing: -0.01em;
+}
+
+.business-sidebar-link:hover {
+  background: var(--sidebar-hover);
+  color: #e2e8f0;
+}
+
+.business-sidebar-link-active {
+  background: var(--sidebar-active);
+  color: var(--sidebar-active-text);
+  font-weight: 600;
+}
+
+.business-sidebar-link-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 20%;
+  height: 60%;
+  width: 3px;
+  background: var(--brand-accent);
+  border-radius: 0 3px 3px 0;
+}
+
+.business-sidebar-link-active:hover {
+  background: var(--sidebar-active);
+  color: var(--sidebar-active-text);
+}
+
+/* Footer */
+.business-sidebar-footer {
+  padding: 0.875rem;
+  border-top: 1px solid var(--sidebar-border);
+}
+
+.business-sidebar-footer-main {
+  margin-bottom: 0.625rem;
+  padding: 0.75rem 0.875rem;
+  background: rgba(255,255,255,0.05);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--sidebar-border);
+}
+
+.business-sidebar-footer-name {
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: #e2e8f0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 0.125rem;
+}
+
+.business-sidebar-footer-role {
+  font-size: 0.6875rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.business-sidebar-logout-btn {
+  width: 100%;
+  padding: 0.5rem 0.875rem;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #64748b;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  font-size: 0.8125rem;
+  transition: var(--transition);
+}
+
+.business-sidebar-logout-btn:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.2);
+  color: #94a3b8;
+}
+
+/* ── Main ── */
+.business-main {
+  flex: 1;
+  margin-left: var(--sidebar-width);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg-page);
+  overflow: hidden;
+}
+
+/* Header */
+.business-header {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-light);
+  padding: 1.125rem 2rem;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.business-header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.business-header-left { display: flex; flex-direction: column; gap: 0.125rem; }
+
+.business-header-title {
+  font-family: 'Sora', sans-serif;
+  font-size: 1.1875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.business-header-subtitle {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* Content area */
+.business-content {
+  flex: 1;
+  padding: 1.75rem 2rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.business-content::-webkit-scrollbar { width: 6px; }
+.business-content::-webkit-scrollbar-track { background: transparent; }
+.business-content::-webkit-scrollbar-thumb { background: var(--border-medium); border-radius: 3px; }
+.business-content::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── Cards ── */
+.business-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+}
+
+.business-card:hover {
+  border-color: var(--border-medium);
+  box-shadow: var(--shadow-md);
+}
+
+.business-card-header {
+  padding: 1.125rem 1.5rem;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-subtle);
+}
+
+.business-card-title {
+  font-family: 'Sora', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.business-card-body { padding: 1.5rem; }
+
+/* ── Grids ── */
+.business-grid { display: grid; gap: 1.25rem; }
+.business-grid-2 { grid-template-columns: repeat(2, 1fr); }
+.business-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.business-grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+/* ── Buttons ── */
+.btn-primary {
+  background: var(--brand-primary);
+  color: #ffffff;
+  border: none;
+  padding: 0.5625rem 1.125rem;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  letter-spacing: -0.01em;
+  box-shadow: 0 1px 3px rgba(37,99,235,0.3);
+}
+
+.btn-primary:hover {
+  background: var(--brand-dark);
+  box-shadow: 0 4px 12px rgba(37,99,235,0.35);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active { transform: translateY(0); }
+
+.btn-secondary {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium);
+  padding: 0.5625rem 1.125rem;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-subtle);
+  border-color: var(--text-muted);
+}
+
+.btn-success {
+  background: var(--green);
+  color: #ffffff;
+  border: none;
+  padding: 0.5625rem 1.125rem;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: 0 1px 3px rgba(22,163,74,0.3);
+}
+
+.btn-success:hover {
+  background: #15803d;
+  box-shadow: 0 4px 12px rgba(22,163,74,0.3);
+  transform: translateY(-1px);
+}
+
+/* ── Responsive ── */
+@media (max-width: 1200px) {
+  .business-grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 1024px) {
+  :root { --sidebar-width: 220px; }
+  .business-grid-3 { grid-template-columns: repeat(2, 1fr); }
+  .business-content { padding: 1.5rem; }
+}
+
+@media (max-width: 768px) {
+  :root { --sidebar-width: 200px; }
+  .business-grid-2,
+  .business-grid-3,
+  .business-grid-4 { grid-template-columns: 1fr; }
+  .business-header { padding: 1rem 1.25rem; }
+  .business-content { padding: 1.25rem; }
+}
+
+@media (max-width: 640px) {
+  :root { --sidebar-width: 64px; }
+  .business-sidebar-logo-text { display: none; }
+  .business-sidebar-nav { padding: 0.75rem 0.5rem; }
+  .business-sidebar-link {
+    justify-content: center;
+    padding: 0.625rem;
+    font-size: 0;
+  }
+  .business-sidebar-link::before { display: none; }
+  .business-sidebar-footer-main { display: none; }
+  .business-sidebar-logout-btn { font-size: 0; padding: 0.625rem; }
+  .business-sidebar-logout-btn::after { content: '→'; font-size: 1rem; }
+  .business-header-subtitle { display: none; }
+  .business-content { padding: 1rem; }
+}

@@ -1,0 +1,14 @@
+/* ── Messages Page ── */
+
+/* Scrollbar styling for conversation list and chat area */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d0d7de; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #8c959f; }
+
+/* Mobile — back button visible */
+@media (max-width: 768px) {
+  .messages-back-btn {
+    display: block !important;
+  }
+}
