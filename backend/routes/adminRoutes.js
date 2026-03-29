@@ -15,4 +15,8 @@ router.get("/registrations/pending",  verifyToken, checkRole("admin"), adminCont
 router.post("/registrations/approve", verifyToken, checkRole("admin"), adminController.approveRegistration);
 router.post("/registrations/reject",  verifyToken, checkRole("admin"), adminController.rejectRegistration);
 
+router.post("/users/suspend",         verifyToken, checkRole("admin"), adminController.suspendUser);
+router.post("/users/unsuspend",       verifyToken, checkRole("admin"), adminController.unsuspendUser);
+router.delete("/users/remove",        verifyToken, checkRole("admin"), adminController.removeUser);
+
 module.exports = router;

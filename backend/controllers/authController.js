@@ -29,14 +29,22 @@ const register = async (req, res) => {
     });
   }
 
-  // Basic GST format check (15 characters alphanumeric)
-  if (gst_number.length !== 15) {
-    return res.status(400).json({ message: "GST number must be 15 characters." });
+  // Strong Password Regex: Min 8 chars, 1 uppercase, 1 number, 1 special char
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  if (!passwordRegex.test(password)) {
+    return res.status(400).json({ message: "Password must be at least 8 characters long, contain an uppercase letter, a number, and a special character." });
   }
 
-  // Basic CIN format check (21 characters)
-  if (cin_number.length !== 21) {
-    return res.status(400).json({ message: "CIN number must be 21 characters." });
+  // Indian GST Validation: 2 digits(State) + 10 chars(PAN) + 1 entity code + Z + 1 check digit
+  const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+  if (!gstRegex.test(gst_number.toUpperCase())) {
+    return res.status(400).json({ message: "Invalid GST number format." });
+  }
+
+  // Indian CIN Validation: L/U + 5 digits + 2 chars(State) + 4 digits(Year) + 3 chars(Type) + 6 digits
+  const cinRegex = /^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/;
+  if (!cinRegex.test(cin_number.toUpperCase())) {
+    return res.status(400).json({ message: "Invalid CIN number format." });
   }
 
   try {
@@ -168,18 +176,30 @@ const login = (req, res) => {
       });
     }
 
+    if (user.account_status === "suspended") {
+      return res.status(403).json({
+        message: "Your account has been suspended by an administrator.",
+        status: "suspended"
+      });
+    }
+
     // Step 5 — Issue JWT
-    // Token contains id and role — available as req.user in all protected routes
     const token = jwt.sign(
       { id: user.id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: "8h" }  // 8 hours — reasonable for a business platform
+      { expiresIn: "8h" }
     );
 
-    // Step 6 — Return token + safe user info (no password)
+    // Step 6 — Set HttpOnly cookie instead of exposing via JSON payload
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 8 * 60 * 60 * 1000 // 8 hours
+    });
+
     res.status(200).json({
       message: "Login successful.",
-      token,
       user: {
         id:           user.id,
         company_name: user.company_name,
@@ -190,7 +210,39 @@ const login = (req, res) => {
   });
 };
 
+// ================= GET ME =================
+const getMe = (req, res) => {
+  // If request passed authMiddleware, req.user exists. 
+  // We fetch fresh info to send back to React.
+  userModel.findUserById(req.user.id, (err, results) => {
+    if (err || results.length === 0) {
+      return res.status(404).json({ message: "User not found." });
+    }
+    const user = results[0];
+    res.json({
+      user: {
+        id:           user.id,
+        company_name: user.company_name,
+        email:        user.email,
+        role:         user.role
+      }
+    });
+  });
+};
+
+// ================= LOGOUT =================
+const logout = (req, res) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict"
+  });
+  res.json({ message: "Logged out successfully." });
+};
+
 module.exports = {
   register,
-  login
+  login,
+  getMe,
+  logout
 };

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../api';
+import { CheckCircle, Check, X } from 'lucide-react';
 
 const AdminRegistrations = () => {
   const [pending, setPending] = useState([]);
@@ -77,7 +78,9 @@ const AdminRegistrations = () => {
       {pending.length === 0 ? (
         <div className="business-card">
           <div className="business-card-body" style={{ textAlign: 'center', padding: '3rem' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>✅</div>
+            <div style={{ marginBottom: '0.75rem', display: 'flex', justifyContent: 'center' }}>
+              <CheckCircle size={40} color="#16a34a" />
+            </div>
             <div style={{ fontWeight: 600, color: '#0d1117', marginBottom: '0.375rem' }}>
               All caught up!
             </div>
@@ -146,17 +149,17 @@ const AdminRegistrations = () => {
                       className="btn-success"
                       onClick={() => handleAction(user.id, 'approve')}
                       disabled={processing === user.id}
-                      style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+                      style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem' }}
                     >
-                      {processing === user.id ? '...' : '✓ Approve'}
+                      {processing === user.id ? '...' : <><Check size={16} /> Approve</>}
                     </button>
                     <button
                       className="btn-secondary"
                       onClick={() => handleAction(user.id, 'reject')}
                       disabled={processing === user.id}
-                      style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', color: '#cf1322' }}
+                      style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', color: '#cf1322', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem' }}
                     >
-                      {processing === user.id ? '...' : '✗ Reject'}
+                      {processing === user.id ? '...' : <><X size={16} /> Reject</>}
                     </button>
                   </div>
                 </div>

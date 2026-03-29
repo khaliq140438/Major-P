@@ -23,30 +23,47 @@ exports.sendMessage = (req, res) => {
       if (result.length === 0) return res.status(404).json({ message: "Receiver not found." });
       if (result[0].role !== "business") return res.status(403).json({ message: "Cannot message admin." });
 
-      // Always store user1_id = MIN, user2_id = MAX
-      // This prevents duplicate conversations between same pair of users
-      const user1_id = Math.min(sender_id, receiver_id);
-      const user2_id = Math.max(sender_id, receiver_id);
-
-      // Find existing conversation or create new one
+      // Check sender and receiver are connected before allowing messages
       db.query(
-        "SELECT id FROM conversations WHERE user1_id = ? AND user2_id = ?",
-        [user1_id, user2_id],
-        (err, convoResult) => {
+        `SELECT id FROM connections
+         WHERE status = 'accepted'
+         AND (
+           (sender_id = ? AND receiver_id = ?)
+           OR
+           (sender_id = ? AND receiver_id = ?)
+         )`,
+        [sender_id, receiver_id, receiver_id, sender_id],
+        (err, connResult) => {
           if (err) return res.status(500).json({ message: "Server error." });
-
-          if (convoResult.length > 0) {
-            insertMessage(convoResult[0].id);
-          } else {
-            db.query(
-              "INSERT INTO conversations (user1_id, user2_id) VALUES (?, ?)",
-              [user1_id, user2_id],
-              (err, newConvo) => {
-                if (err) return res.status(500).json({ message: "Failed to create conversation." });
-                insertMessage(newConvo.insertId);
-              }
-            );
+          if (connResult.length === 0) {
+            return res.status(403).json({ message: "You must be connected to message this business." });
           }
+
+          // Always store user1_id = MIN, user2_id = MAX
+          const user1_id = Math.min(sender_id, receiver_id);
+          const user2_id = Math.max(sender_id, receiver_id);
+
+          // Find existing conversation or create new one
+          db.query(
+            "SELECT id FROM conversations WHERE user1_id = ? AND user2_id = ?",
+            [user1_id, user2_id],
+            (err, convoResult) => {
+              if (err) return res.status(500).json({ message: "Server error." });
+
+              if (convoResult.length > 0) {
+                insertMessage(convoResult[0].id);
+              } else {
+                db.query(
+                  "INSERT INTO conversations (user1_id, user2_id) VALUES (?, ?)",
+                  [user1_id, user2_id],
+                  (err, newConvo) => {
+                    if (err) return res.status(500).json({ message: "Failed to create conversation." });
+                    insertMessage(newConvo.insertId);
+                  }
+                );
+              }
+            }
+          );
         }
       );
     }
@@ -66,8 +83,6 @@ exports.sendMessage = (req, res) => {
           created_at: new Date()
         };
 
-        // Emit to conversation room
-        // Room name MUST match: socket.join(`conversation_${conversationId}`) in server.js
         const io = req.app.get("io");
         io.to(`conversation_${conversation_id}`).emit("receive_message", messageData);
 

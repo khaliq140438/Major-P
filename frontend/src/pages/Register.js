@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { CheckCircle, Building } from 'lucide-react';
 import './Login.css';
 
 const Register = () => {
@@ -82,7 +83,9 @@ const Register = () => {
             borderRadius: '12px', padding: '2rem',
             textAlign: 'center', marginBottom: '1.5rem'
           }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>
+            <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center' }}>
+              <CheckCircle size={48} color="#059669" />
+            </div>
             <h2 style={{ color: '#065f46', marginBottom: '1rem' }}>Registration Submitted!</h2>
             <p style={{ color: '#047857', margin: 0, lineHeight: 1.6 }}>
               Your registration is under admin review. You will be able to log in
@@ -175,8 +178,8 @@ const Register = () => {
             background: '#eff6ff', borderRadius: '8px',
             padding: '1rem', marginBottom: '0.5rem'
           }}>
-            <p style={{ margin: '0 0 0.75rem', fontSize: '0.8125rem', color: '#1e40af', fontWeight: 600 }}>
-              🏛️ Business Credentials — Required for verification
+            <p style={{ margin: '0 0 0.75rem', fontSize: '0.8125rem', color: '#1e40af', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+              <Building size={16} /> Business Credentials — Required for verification
             </p>
 
             <div className="login-field" style={{ marginBottom: '0.75rem' }}>

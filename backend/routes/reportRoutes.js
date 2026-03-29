@@ -9,7 +9,6 @@ const {
   getAllReports,
   addMonthlySales,
   getMonthlySales,
-  getMonthlySalesSummary,
   addCustomer,
   getCustomerDemographics,
   addWebsiteTraffic,

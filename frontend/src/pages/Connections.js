@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+// import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import socket from '../Socket';
+import { Link as LinkIcon, MessageSquare, ChevronRight, CheckCircle, Check, X } from 'lucide-react';
 
 const avatarColor = (id) => {
   const colors = ['#2563eb','#16a34a','#7c3aed','#ca8a04','#dc2626','#0891b2'];
@@ -28,9 +31,7 @@ const Connections = () => {
   const [loading,         setLoading]         = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => { loadData(); }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [connRes, pendingRes] = await Promise.all([
@@ -44,7 +45,21 @@ const Connections = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+
+    socket.on('connection_request',  loadData);
+    socket.on('connection_accepted', loadData);
+    socket.on('connection_rejected', loadData);
+
+    return () => {
+      socket.off('connection_request',  loadData);
+      socket.off('connection_accepted', loadData);
+      socket.off('connection_rejected', loadData);
+    };
+  }, [loadData]);
 
   const handleAccept = async (id) => {
     try {
@@ -92,7 +107,9 @@ const Connections = () => {
         <div className="business-card-body">
           {connections.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2.5rem 1rem' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🔗</div>
+              <div style={{ marginBottom: '0.75rem', display: 'flex', justifyContent: 'center' }}>
+                <LinkIcon size={32} color="#94a3b8" />
+              </div>
               <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0f172a', marginBottom: '0.375rem' }}>
                 No connections yet
               </div>
@@ -136,12 +153,12 @@ const Connections = () => {
                     <button
                       className="btn-primary"
                       onClick={(e) => { e.stopPropagation(); handleMessage(conn.connected_user_id); }}
-                      style={{ fontSize: '0.75rem', padding: '0.375rem 0.625rem' }}
+                      style={{ padding: '0.375rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     >
-                      💬
+                      <MessageSquare size={16} />
                     </button>
-                    <span style={{ fontSize: '0.75rem', color: '#2563eb', fontWeight: 500 }}>
-                      View →
+                    <span style={{ fontSize: '0.75rem', color: '#2563eb', fontWeight: 500, display: 'flex', alignItems: 'center' }}>
+                      View <ChevronRight size={14} />
                     </span>
                   </div>
                 </div>
@@ -167,7 +184,9 @@ const Connections = () => {
         <div className="business-card-body">
           {pendingRequests.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2.5rem 1rem' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>✅</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
+                <CheckCircle size={32} color="#10b981" />
+              </div>
               <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0f172a', marginBottom: '0.375rem' }}>
                 All caught up!
               </div>
@@ -206,16 +225,16 @@ const Connections = () => {
                     <button
                       onClick={() => handleAccept(req.id)}
                       className="btn-success"
-                      style={{ flex: 1, padding: '0.5rem', fontSize: '0.8125rem' }}
+                      style={{ flex: 1, padding: '0.5rem', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}
                     >
-                      ✓ Accept
+                      <Check size={14} /> Accept
                     </button>
                     <button
                       onClick={() => handleReject(req.id)}
                       className="btn-secondary"
-                      style={{ flex: 1, padding: '0.5rem', fontSize: '0.8125rem', color: '#dc2626' }}
+                      style={{ flex: 1, padding: '0.5rem', fontSize: '0.8125rem', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}
                     >
-                      ✗ Decline
+                      <X size={14} /> Decline
                     </button>
                   </div>
                 </div>

@@ -1,15 +1,12 @@
 const jwt = require("jsonwebtoken");
 
 const verifyToken = (req, res, next) => {
-  const authHeader = req.headers.authorization;
+  // Read token from secure HttpOnly cookies instead of Authorization header
+  const token = req.cookies.token;
 
-  // Check if Authorization header exists
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Access denied. No token provided." });
+  if (!token) {
+    return res.status(401).json({ message: "Access denied. No authentication session found." });
   }
-
-  // Extract token from "Bearer <token>"
-  const token = authHeader.split(" ")[1];
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);

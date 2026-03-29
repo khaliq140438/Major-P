@@ -61,6 +61,11 @@ const searchBusinesses = (user_id, searchQuery, callback) => {
     params.push(searchPattern, searchPattern, searchPattern, searchPattern);
   }
 
+  // Hide connected users from standard discovery, but show them if actively searched
+  if (!searchQuery || !searchQuery.trim()) {
+    query += ` HAVING connection_status != 'connected' OR connection_status IS NULL`;
+  }
+
   // Approved businesses first, then alphabetical
   query += ` ORDER BY u.company_name ASC`;
 

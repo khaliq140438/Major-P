@@ -22,34 +22,88 @@ import AdminRegistrations from './pages/AdminRegistrations';
 import BusinessLayout from './components/BusinessLayout';
 import AdminLayout    from './components/AdminLayout';
 
+// Route guards
+import { PrivateRoute, AdminRoute, BusinessRoute } from './PrivateRoute';
+
 import './App.css';
 
 function App() {
   return (
     <div className="app-container">
       <Routes>
-        {/* Public routes */}
+
+        {/* Public routes — no login needed */}
         <Route path="/"         element={<Home />} />
         <Route path="/login"    element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Business routes */}
-        <Route path="/dashboard"   element={<BusinessLayout><Dashboard /></BusinessLayout>} />
-        <Route path="/profile"     element={<BusinessLayout><Profile /></BusinessLayout>} />
-        <Route path="/profile/:userId" element={<BusinessLayout><Profile /></BusinessLayout>} />
-        <Route path="/connections" element={<BusinessLayout><Connections /></BusinessLayout>} />
-        <Route path="/search"      element={<BusinessLayout><Search /></BusinessLayout>} />
-        <Route path="/messages"    element={<BusinessLayout><Messages /></BusinessLayout>} />
-        <Route path="/analytics"   element={<BusinessLayout><Analytics /></BusinessLayout>} />
+        {/* Business routes — must be logged in as business */}
+        <Route path="/dashboard" element={
+          <BusinessRoute>
+            <BusinessLayout><Dashboard /></BusinessLayout>
+          </BusinessRoute>
+        } />
 
-        {/* Admin routes */}
-        <Route path="/admin"                    element={<Navigate to="/admin/dashboard" replace />} />
-        <Route path="/admin/dashboard"          element={<AdminLayout><AdminDashboard /></AdminLayout>} />
-        <Route path="/admin/registrations"      element={<AdminLayout><AdminRegistrations /></AdminLayout>} />
-        <Route path="/admin/users"              element={<AdminLayout><AdminUsers /></AdminLayout>} />
+        <Route path="/profile" element={
+          <BusinessRoute>
+            <BusinessLayout><Profile /></BusinessLayout>
+          </BusinessRoute>
+        } />
 
-        {/* Catch-all — redirect unknown routes to login */}
+        <Route path="/profile/:userId" element={
+          <PrivateRoute>
+            <BusinessLayout><Profile /></BusinessLayout>
+          </PrivateRoute>
+        } />
+
+        <Route path="/connections" element={
+          <BusinessRoute>
+            <BusinessLayout><Connections /></BusinessLayout>
+          </BusinessRoute>
+        } />
+
+        <Route path="/search" element={
+          <BusinessRoute>
+            <BusinessLayout><Search /></BusinessLayout>
+          </BusinessRoute>
+        } />
+
+        <Route path="/messages" element={
+          <BusinessRoute>
+            <BusinessLayout><Messages /></BusinessLayout>
+          </BusinessRoute>
+        } />
+
+        <Route path="/analytics" element={
+          <BusinessRoute>
+            <BusinessLayout><Analytics /></BusinessLayout>
+          </BusinessRoute>
+        } />
+
+        {/* Admin routes — must be logged in as admin */}
+        <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+
+        <Route path="/admin/dashboard" element={
+          <AdminRoute>
+            <AdminLayout><AdminDashboard /></AdminLayout>
+          </AdminRoute>
+        } />
+
+        <Route path="/admin/registrations" element={
+          <AdminRoute>
+            <AdminLayout><AdminRegistrations /></AdminLayout>
+          </AdminRoute>
+        } />
+
+        <Route path="/admin/users" element={
+          <AdminRoute>
+            <AdminLayout><AdminUsers /></AdminLayout>
+          </AdminRoute>
+        } />
+
+        {/* Catch-all */}
         <Route path="*" element={<Navigate to="/login" replace />} />
+
       </Routes>
     </div>
   );

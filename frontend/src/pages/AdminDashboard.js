@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../api';
+import { Building, Clock, Link as LinkIcon, Users } from 'lucide-react';
 
 const AdminDashboard = () => {
   const [stats,        setStats]        = useState(null);
@@ -37,10 +38,10 @@ const AdminDashboard = () => {
       {/* ── KPI Cards ── */}
       <div className="business-grid business-grid-4" style={{ marginBottom: '1.5rem' }}>
         {[
-          { icon: '🏢', value: stats?.approved_businesses  || 0, label: 'Approved Businesses', color: '#1a7f37' },
-          { icon: '⏳', value: stats?.pending_registrations || 0, label: 'Pending Approvals',   color: '#bf8700' },
-          { icon: '🔗', value: stats?.total_connections     || 0, label: 'Total Connections',   color: '#8250df' },
-          { icon: '👥', value: stats?.total_businesses      || 0, label: 'Total Registered',    color: '#0969da' }
+          { icon: <Building size={32} color="#1a7f37" />, value: stats?.approved_businesses  || 0, label: 'Approved Businesses', color: '#1a7f37' },
+          { icon: <Clock size={32} color="#bf8700" />, value: stats?.pending_registrations || 0, label: 'Pending Approvals',   color: '#bf8700' },
+          { icon: <LinkIcon size={32} color="#8250df" />, value: stats?.total_connections     || 0, label: 'Total Connections',   color: '#8250df' },
+          { icon: <Users size={32} color="#0969da" />, value: stats?.total_businesses      || 0, label: 'Total Registered',    color: '#0969da' }
         ].map(({ icon, value, label, color }) => (
           <div key={label} className="business-card">
             <div className="business-card-body" style={{ textAlign: 'center' }}>

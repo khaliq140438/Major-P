@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { ShieldCheck, Link as LinkIcon, BarChart2, MessageSquare, ChevronRight, Lock } from 'lucide-react';
 import './Login.css';
 
 const Home = () => {
@@ -45,13 +46,13 @@ const Home = () => {
         padding: '4rem 2rem', textAlign: 'center'
       }}>
         <div style={{
-          display: 'inline-block', background: 'rgba(255,255,255,0.1)',
+          display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.1)',
           border: '1px solid rgba(255,255,255,0.2)',
           borderRadius: '999px', padding: '0.375rem 1rem',
           fontSize: '0.8125rem', color: 'rgba(255,255,255,0.85)',
           fontWeight: 500, marginBottom: '2rem', letterSpacing: '0.5px'
         }}>
-          🔒 Admin-verified businesses only
+          <Lock size={14} /> Admin-verified businesses only
         </div>
 
         <h1 style={{
@@ -83,9 +84,10 @@ const Home = () => {
             padding: '0.875rem 2rem', borderRadius: '10px',
             border: '1px solid rgba(255,255,255,0.4)',
             color: 'white', textDecoration: 'none',
-            fontSize: '1rem', fontWeight: 500
+            fontSize: '1rem', fontWeight: 500,
+            display: 'inline-flex', alignItems: 'center', gap: '0.5rem'
           }}>
-            Sign In →
+            Sign In <ChevronRight size={18} />
           </Link>
         </div>
 
@@ -95,10 +97,10 @@ const Home = () => {
           gap: '1rem', marginTop: '5rem', maxWidth: '900px', width: '100%'
         }}>
           {[
-            { icon: '✅', title: 'Admin Verified',   desc: 'Every business is manually reviewed before joining the platform' },
-            { icon: '🔗', title: 'Smart Networking', desc: 'Connect and message businesses in your industry instantly' },
-            { icon: '📊', title: 'Credibility Score',desc: 'Showcase your business strength with a transparent analytics score' },
-            { icon: '💬', title: 'Real-time Chat',   desc: 'Communicate with partners via live WebSocket messaging' }
+            { icon: <ShieldCheck size={28} color="#60a5fa" />, title: 'Admin Verified',   desc: 'Every business is manually reviewed before joining the platform' },
+            { icon: <LinkIcon size={28} color="#34d399" />, title: 'Smart Networking', desc: 'Connect and message businesses in your industry instantly' },
+            { icon: <BarChart2 size={28} color="#fcd34d" />, title: 'Credibility Score',desc: 'Showcase your business strength with a transparent analytics score' },
+            { icon: <MessageSquare size={28} color="#a78bfa" />, title: 'Real-time Chat',   desc: 'Communicate with partners via live WebSocket messaging' }
           ].map(({ icon, title, desc }) => (
             <div key={title} style={{
               background: 'rgba(255,255,255,0.07)',
@@ -106,7 +108,7 @@ const Home = () => {
               borderRadius: '12px', padding: '1.5rem',
               textAlign: 'left'
             }}>
-              <div style={{ fontSize: '1.75rem', marginBottom: '0.75rem' }}>{icon}</div>
+              <div style={{ marginBottom: '1rem' }}>{icon}</div>
               <div style={{ fontSize: '1rem', fontWeight: 700, color: 'white', marginBottom: '0.5rem' }}>
                 {title}
               </div>

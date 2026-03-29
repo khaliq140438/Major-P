@@ -1,40 +1,41 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '../auth';
+import { useNavigate } from 'react-router-dom'; // ← ADD
 import './Login.css';
 
 const Login = () => {
-
-  const [email, setEmail] = useState('');
+  const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState('');
+
   const { login: authLogin } = useAuth();
+  const navigate = useNavigate(); // ← ADD
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+
     try {
       const api = (await import('../api')).default;
       const res = await api.post('/auth/login', { email, password });
-      authLogin(res.data.token);
-      setLoading(false);
-      // Decode role from token
-      const { jwtDecode } = await import('jwt-decode');
-      const decoded = jwtDecode(res.data.token);
-      if (decoded.role === 'admin') {
-        window.location.href = '/admin';
+
+      const user = res.data.user;
+      authLogin(user);
+
+      if (user.role === 'admin') {
+        navigate('/admin/dashboard', { replace: true });
       } else {
-        window.location.href = '/dashboard';
+        navigate('/dashboard', { replace: true });
       }
+
     } catch (err) {
+      setError(
+        err.response?.data?.message || 'Invalid credentials'
+      );
+    } finally {
       setLoading(false);
-      if (err.response && err.response.data && err.response.data.message) {
-        setError(err.response.data.message);
-      } else {
-        setError('Invalid credentials');
-      }
     }
   };
 
@@ -69,9 +70,7 @@ const Login = () => {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
           <div className="login-links">
-            <a href="#">Forgot password?</a>
-            <span> | </span>
-            <a href="/register">Register</a>
+            <a href="/register">Register your business</a>
           </div>
         </form>
       </div>

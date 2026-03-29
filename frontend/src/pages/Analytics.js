@@ -1,10 +1,34 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  Filler,
+  Tooltip,
+  Legend
+} from 'chart.js';
+import { Bar, Line } from 'react-chartjs-2';
 import api from '../api';
+import { useAuth } from '../auth';
+import { Download, Plus, Trash2, CheckCircle2, TrendingUp, DollarSign, Users, Briefcase } from 'lucide-react';
 
-// ── Month name helper ──
+// ── Register Chart.js components ──
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  Filler,
+  Tooltip,
+  Legend
+);
+
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-// ── Credibility score label ──
 const scoreLabel = (score) => {
   if (score >= 80) return { label: 'Excellent', color: '#1a7f37', bg: '#dafbe1' };
   if (score >= 60) return { label: 'Strong',    color: '#0969da', bg: '#ddf4ff' };
@@ -12,29 +36,38 @@ const scoreLabel = (score) => {
   return              { label: 'Building',   color: '#57606a', bg: '#f6f8fa' };
 };
 
+// ── Shared chart options base ──
+const baseOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false }
+  },
+  scales: {
+    x: {
+      grid: { display: false },
+      ticks: { font: { size: 11 }, color: '#57606a' }
+    },
+    y: {
+      grid: { color: '#eaeef2' },
+      ticks: { font: { size: 11 }, color: '#57606a' }
+    }
+  }
+};
+
 const Analytics = () => {
-  const [data,    setData]    = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [saving,  setSaving]  = useState(false);
-  const [msg,     setMsg]     = useState('');
+  const [data,     setData]     = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [saving,   setSaving]   = useState(false);
+  const [msg,      setMsg]      = useState('');
   const [showForm, setShowForm] = useState(false);
 
-  // Single form state for all 3 manual modules
   const [form, setForm] = useState({
-    // Revenue
-    month:   new Date().getMonth() + 1,
-    year:    new Date().getFullYear(),
-    revenue: '',
-    // Business Info
-    founded_year:    '',
-    employee_count:  '',
-    business_type:   '',
-    annual_turnover: '',
-    // Clients
-    total_clients:         '',
-    repeat_client_percent: '',
-    industries_served:     '',
-    top_client_location:   ''
+    month:               new Date().getMonth() + 1,
+    year:                new Date().getFullYear(),
+    revenue:             '',
+    gross_profit_margin: '',
+    client_count:        ''
   });
 
   useEffect(() => { loadAnalytics(); }, []);
@@ -44,20 +77,6 @@ const Analytics = () => {
       setLoading(true);
       const res = await api.get('/analytics');
       setData(res.data);
-
-      // Pre-fill form with existing data
-      const { businessInfo, clients } = res.data;
-      setForm(prev => ({
-        ...prev,
-        founded_year:          businessInfo?.founded_year    || '',
-        employee_count:        businessInfo?.employee_count  || '',
-        business_type:         businessInfo?.business_type   || '',
-        annual_turnover:       businessInfo?.annual_turnover || '',
-        total_clients:         clients?.total_clients           || '',
-        repeat_client_percent: clients?.repeat_client_percent   || '',
-        industries_served:     clients?.industries_served        || '',
-        top_client_location:   clients?.top_client_location      || ''
-      }));
     } catch (err) {
       console.error('Failed to load analytics:', err);
     } finally {
@@ -75,29 +94,18 @@ const Analytics = () => {
     setMsg('');
 
     try {
-      // Save all 3 modules in parallel
-      await Promise.all([
-        form.revenue !== '' && api.post('/analytics/revenue', {
-          month:   parseInt(form.month),
-          year:    parseInt(form.year),
-          revenue: parseFloat(form.revenue)
-        }),
-        api.post('/analytics/business-info', {
-          founded_year:    form.founded_year    || null,
-          employee_count:  form.employee_count  || null,
-          business_type:   form.business_type   || null,
-          annual_turnover: form.annual_turnover  || null
-        }),
-        api.post('/analytics/clients', {
-          total_clients:         parseInt(form.total_clients)         || 0,
-          repeat_client_percent: parseFloat(form.repeat_client_percent) || 0,
-          industries_served:     form.industries_served   || null,
-          top_client_location:   form.top_client_location || null
-        })
-      ].filter(Boolean));
+      await api.post('/analytics/monthly', {
+        month:               parseInt(form.month),
+        year:                parseInt(form.year),
+        revenue:             parseFloat(form.revenue),
+        gross_profit_margin: parseFloat(form.gross_profit_margin),
+        client_count:        parseInt(form.client_count)
+      });
 
-      setMsg('✅ Analytics saved successfully.');
+      setMsg('Success: Monthly data saved successfully.');
       setShowForm(false);
+      // Reset only the value fields, keep month/year as-is for convenience
+      setForm(prev => ({ ...prev, revenue: '', gross_profit_margin: '', client_count: '' }));
       await loadAnalytics();
     } catch (err) {
       setMsg('❌ ' + (err.response?.data?.message || 'Failed to save. Try again.'));
@@ -114,10 +122,180 @@ const Analytics = () => {
     );
   }
 
-  const { revenue = [], businessInfo = {}, clients = {}, credibilityScore = {} } = data || {};
-  const maxRevenue = Math.max(...revenue.map(r => r.revenue), 1);
-  const score      = credibilityScore.total_score || 0;
-  const scoreInfo  = scoreLabel(score);
+  const { monthlyData = [], credibilityScore = {} } = data || {};
+  const score     = credibilityScore.total_score || 0;
+  const scoreInfo = scoreLabel(score);
+
+  // ── Render Charts using only the latest 10 months ──
+  const chartData = monthlyData.slice(-10);
+
+  // ── Build chart labels (e.g. "Jan 24") ──
+  const labels = chartData.map(r => `${MONTHS[r.month - 1]} ${String(r.year).slice(2)}`);
+
+  // ── Chart 1: Revenue — Bar chart ──
+  const revenueChartData = {
+    labels,
+    datasets: [{
+      data:            chartData.map(r => Number(r.revenue)),
+      backgroundColor: '#2563eb',
+      borderRadius:    6,
+      borderSkipped:   false,
+    }]
+  };
+
+  const revenueOptions = {
+    ...baseOptions,
+    plugins: {
+      ...baseOptions.plugins,
+      tooltip: {
+        callbacks: {
+          label: (ctx) => ` ₹${Number(ctx.raw).toLocaleString('en-IN')}`
+        }
+      }
+    },
+    scales: {
+      ...baseOptions.scales,
+      y: {
+        ...baseOptions.scales.y,
+        ticks: {
+          font: { size: 11 },
+          color: '#57606a',
+          stepSize: 100000,                                        // ← one tick every ₹1L
+          callback: (val) => `₹${(val / 100000).toFixed(0)}L`     // ← clean label
+        }
+      }
+    }
+  };
+
+  // ── Chart 2: Gross Profit — Line chart ──
+  const grossProfitChartData = {
+    labels,
+    datasets: [{
+      data:        chartData.map(r => Number(r.gross_profit)),
+      borderColor: '#0891b2',
+      borderWidth: 2.5,
+      pointBackgroundColor: '#0891b2',
+      pointRadius:  4,
+      tension:      0.4,
+      fill:         false,
+    }]
+  };
+
+  const grossProfitOptions = {
+    ...baseOptions,
+    plugins: {
+      ...baseOptions.plugins,
+      tooltip: {
+        callbacks: {
+          label: (ctx) => ` ₹${Number(ctx.raw).toLocaleString('en-IN')}`
+        }
+      }
+    },
+    scales: {
+      ...baseOptions.scales,
+      y: {
+        ...baseOptions.scales.y,
+        ticks: {
+          font: { size: 11 },
+          color: '#57606a',
+          stepSize: 100000,                                        // ← one tick every ₹1L
+          callback: (val) => `₹${(val / 100000).toFixed(0)}L`     // ← clean label
+        }
+      }
+    }
+  };
+
+  // ── Chart 3: MoM Growth — Diverging bar chart ──
+  // Bars above zero = green (growth), below zero = red (decline)
+  const momValues = chartData.map(r => r.mom_growth);
+
+  const momChartData = {
+    labels,
+    datasets: [{
+      data:            momValues,
+      backgroundColor: momValues.map(v =>
+        v === null ? '#d0d7de' : v >= 0 ? '#16a34a' : '#dc2626'
+      ),
+      borderRadius: 4,
+      borderSkipped: false,
+    }]
+  };
+
+  const momOptions = {
+    ...baseOptions,
+    plugins: {
+      ...baseOptions.plugins,
+      tooltip: {
+        callbacks: {
+          label: (ctx) => ctx.raw === null
+            ? ' No previous month'
+            : ` ${ctx.raw > 0 ? '+' : ''}${ctx.raw}%`
+        }
+      }
+    },
+    scales: {
+      ...baseOptions.scales,
+      y: {
+        ...baseOptions.scales.y,
+        ticks: {
+          ...baseOptions.scales.y.ticks,
+          callback: (val) => `${val}%`
+        }
+      }
+    }
+  };
+
+  // ── Chart 4: Client Count — Area chart ──
+  const clientChartData = {
+    labels,
+    datasets: [{
+      data:            chartData.map(r => r.client_count),
+      borderColor:     '#7c3aed',
+      borderWidth:     2.5,
+      pointBackgroundColor: '#7c3aed',
+      pointRadius:     4,
+      tension:         0.4,
+      fill:            true,
+      backgroundColor: 'rgba(124, 58, 237, 0.12)',
+    }]
+  };
+
+  const clientOptions = {
+    ...baseOptions,
+    plugins: {
+      ...baseOptions.plugins,
+      tooltip: {
+        callbacks: {
+          label: (ctx) => ` ${ctx.raw} clients`
+        }
+      }
+    },
+    scales: {
+      ...baseOptions.scales,
+      y: {
+        ...baseOptions.scales.y,
+        beginAtZero: true,
+        ticks: {
+          ...baseOptions.scales.y.ticks,
+          stepSize: 1,
+          callback: (val) => Number.isInteger(val) ? val : ''
+        }
+      }
+    }
+  };
+
+  // ── Empty state for charts ──
+  const EmptyChart = ({ message }) => (
+    <div style={{
+      height: '180px', display: 'flex', alignItems: 'center',
+      justifyContent: 'center', color: '#57606a',
+      fontSize: '0.875rem', textAlign: 'center'
+    }}>
+      {message}
+    </div>
+  );
+
+  const hasData = monthlyData.length > 0;
 
   return (
     <div>
@@ -128,42 +306,43 @@ const Analytics = () => {
             Business Analytics
           </h1>
           <p style={{ fontSize: '0.8125rem', color: '#57606a', margin: '0.25rem 0 0' }}>
-            Fill in your business data to build credibility with potential partners.
+            Enter your monthly data to track performance and build your credibility score.
           </p>
         </div>
         <button
           className="btn-primary"
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => { setShowForm(!showForm); setMsg(''); }}
           style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
         >
-          {showForm ? 'Cancel' : '✏️ Edit Analytics'}
+          {showForm ? 'Cancel' : '+ Add Monthly Data'}
         </button>
       </div>
 
       {msg && (
         <div style={{
-          padding: '0.75rem 1rem', borderRadius: '6px', marginBottom: '1rem', fontSize: '0.875rem',
-          background: msg.startsWith('✅') ? '#dafbe1' : '#ffebe9',
-          color:      msg.startsWith('✅') ? '#1a7f37'  : '#cf1322'
+          padding: '0.75rem 1rem', borderRadius: '6px',
+          marginBottom: '1rem', fontSize: '0.875rem',
+          background: msg.startsWith('Success') ? '#dafbe1' : '#ffebe9',
+          color:      msg.startsWith('Success') ? '#1a7f37'  : '#cf1322'
         }}>
           {msg}
         </div>
       )}
 
-      {/* ── Edit Form ── */}
+      {/* ── Monthly Entry Form ── */}
       {showForm && (
         <div className="business-card" style={{ marginBottom: '1.5rem' }}>
           <div className="business-card-header">
-            <h2 className="business-card-title">Update Your Analytics</h2>
+            <h2 className="business-card-title">Add / Edit Monthly Entry</h2>
+            <span style={{ fontSize: '0.75rem', color: '#57606a' }}>
+              Submitting an existing month will update it
+            </span>
           </div>
           <div className="business-card-body">
             <form onSubmit={handleSave}>
 
-              {/* Revenue Section */}
-              <p style={{ fontWeight: 600, color: '#0d1117', marginBottom: '0.75rem', fontSize: '0.875rem' }}>
-                📈 Revenue — Add monthly revenue entry
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
+              {/* Row 1: Month + Year */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
                 <div>
                   <label style={labelStyle}>Month</label>
                   <select name="month" value={form.month} onChange={handleChange} style={inputStyle}>
@@ -174,91 +353,63 @@ const Analytics = () => {
                 </div>
                 <div>
                   <label style={labelStyle}>Year</label>
-                  <input type="number" name="year" value={form.year} onChange={handleChange}
-                    style={inputStyle} min="2000" max="2099" />
-                </div>
-                <div>
-                  <label style={labelStyle}>Revenue (₹)</label>
-                  <input type="number" name="revenue" value={form.revenue} onChange={handleChange}
-                    style={inputStyle} placeholder="e.g. 500000" min="0" />
-                </div>
-              </div>
-
-              {/* Business Info Section */}
-              <p style={{ fontWeight: 600, color: '#0d1117', marginBottom: '0.75rem', fontSize: '0.875rem' }}>
-                🏢 Business Info
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                <div>
-                  <label style={labelStyle}>Founded Year</label>
-                  <input type="number" name="founded_year" value={form.founded_year}
-                    onChange={handleChange} style={inputStyle} placeholder="e.g. 2015" min="1900" max="2099" />
-                </div>
-                <div>
-                  <label style={labelStyle}>Employee Count</label>
-                  <input type="number" name="employee_count" value={form.employee_count}
-                    onChange={handleChange} style={inputStyle} placeholder="e.g. 25" min="0" />
-                </div>
-                <div>
-                  <label style={labelStyle}>Business Type</label>
-                  <select name="business_type" value={form.business_type} onChange={handleChange} style={inputStyle}>
-                    <option value="">Select type</option>
-                    <option value="Startup">Startup</option>
-                    <option value="SME">SME</option>
-                    <option value="Enterprise">Enterprise</option>
-                    <option value="Freelance">Freelance</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={labelStyle}>Annual Turnover</label>
-                  <select name="annual_turnover" value={form.annual_turnover} onChange={handleChange} style={inputStyle}>
-                    <option value="">Select range</option>
-                    <option value="Below 10L">Below ₹10L</option>
-                    <option value="10L-50L">₹10L – ₹50L</option>
-                    <option value="50L-1Cr">₹50L – ₹1Cr</option>
-                    <option value="1Cr-10Cr">₹1Cr – ₹10Cr</option>
-                    <option value="Above 10Cr">Above ₹10Cr</option>
-                  </select>
+                  <input
+                    type="number" name="year" value={form.year}
+                    onChange={handleChange} style={inputStyle}
+                    min="2000" max={new Date().getFullYear()}
+                    required
+                  />
                 </div>
               </div>
 
-              {/* Clients Section */}
-              <p style={{ fontWeight: 600, color: '#0d1117', marginBottom: '0.75rem', fontSize: '0.875rem' }}>
-                🤝 Client Base
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
+              {/* Row 2: Revenue + Margin + Clients */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem' }}>
                 <div>
-                  <label style={labelStyle}>Total Clients</label>
-                  <input type="number" name="total_clients" value={form.total_clients}
-                    onChange={handleChange} style={inputStyle} placeholder="e.g. 40" min="0" />
+                  <label style={labelStyle}>Monthly Revenue (₹)</label>
+                  <input
+                    type="number" name="revenue" value={form.revenue}
+                    onChange={handleChange} style={inputStyle}
+                    placeholder="e.g. 500000" min="0" step="any" required
+                  />
                 </div>
                 <div>
-                  <label style={labelStyle}>Repeat Client % </label>
-                  <input type="number" name="repeat_client_percent" value={form.repeat_client_percent}
-                    onChange={handleChange} style={inputStyle} placeholder="e.g. 65" min="0" max="100" />
+                  <label style={labelStyle}>Gross Profit Margin (%)</label>
+                  <input
+                    type="number" name="gross_profit_margin" value={form.gross_profit_margin}
+                    onChange={handleChange} style={inputStyle}
+                    placeholder="e.g. 42.5" min="0" max="100" step="any" required
+                  />
                 </div>
                 <div>
-                  <label style={labelStyle}>Industries Served</label>
-                  <input type="text" name="industries_served" value={form.industries_served}
-                    onChange={handleChange} style={inputStyle} placeholder="e.g. Retail, Finance, IT" />
-                </div>
-                <div>
-                  <label style={labelStyle}>Top Client Location</label>
-                  <input type="text" name="top_client_location" value={form.top_client_location}
-                    onChange={handleChange} style={inputStyle} placeholder="e.g. Mumbai" />
+                  <label style={labelStyle}>New Clients This Month</label>
+                  <input
+                    type="number" name="client_count" value={form.client_count}
+                    onChange={handleChange} style={inputStyle}
+                    placeholder="e.g. 8" min="0" required
+                  />
                 </div>
               </div>
+
+              {/* Info note */}
+              <p style={{
+                fontSize: '0.75rem', color: '#57606a',
+                background: '#f6f8fa', borderRadius: '6px',
+                padding: '0.625rem 0.875rem', marginBottom: '1rem'
+              }}>
+                Gross profit will be calculated automatically as Revenue × Margin % and shown in the chart.
+                You can enter up to 11 months of data.
+              </p>
 
               <button type="submit" className="btn-primary" disabled={saving}
-                style={{ width: '100%', padding: '0.75rem' }}>
-                {saving ? 'Saving...' : 'Save All Analytics'}
+                style={{ width: '100%', padding: '0.75rem', fontSize: '0.9375rem' }}>
+                {saving ? 'Saving...' : 'Save Monthly Entry'}
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* ── Module 4: Credibility Score ── */}
+      {/* ── Credibility Score Card ── */}
       <div className="business-card" style={{ marginBottom: '1.5rem' }}>
         <div className="business-card-header">
           <h2 className="business-card-title">Credibility Score</h2>
@@ -271,17 +422,18 @@ const Analytics = () => {
           </span>
         </div>
         <div className="business-card-body">
-          {/* Big score */}
+
+          {/* Big score + bar */}
           <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
             <div style={{ fontSize: '3.5rem', fontWeight: 700, color: scoreInfo.color, lineHeight: 1 }}>
               {score}
             </div>
             <div style={{ fontSize: '0.8125rem', color: '#57606a', marginTop: '0.25rem' }}>out of 100</div>
-            {/* Score bar */}
-            <div style={{ margin: '1rem auto 0', maxWidth: '300px', background: '#eaeef2', borderRadius: '999px', height: '8px' }}>
+            <div style={{ margin: '1rem auto 0', maxWidth: '320px', background: '#eaeef2', borderRadius: '999px', height: '8px' }}>
               <div style={{
-                width: `${score}%`, height: '100%', borderRadius: '999px',
-                background: scoreInfo.color, transition: 'width 0.5s ease'
+                width: `${score}%`, height: '100%',
+                borderRadius: '999px', background: scoreInfo.color,
+                transition: 'width 0.5s ease'
               }} />
             </div>
           </div>
@@ -289,135 +441,164 @@ const Analytics = () => {
           {/* 4 component scores */}
           <div className="business-grid business-grid-4">
             {[
-              { label: 'Profile',     value: credibilityScore.profile_score    || 0, max: 25 },
-              { label: 'Connections', value: credibilityScore.connection_score  || 0, max: 25 },
-              { label: 'Activity',    value: credibilityScore.activity_score    || 0, max: 25 },
-              { label: 'Tenure',      value: credibilityScore.tenure_score      || 0, max: 25 }
-            ].map(({ label, value, max }) => (
+              { label: 'Profile',   value: credibilityScore.profile_score   || 0, max: 30,
+                tip: 'Complete your profile fields' },
+              { label: 'Analytics', value: credibilityScore.analytics_score || 0, max: 40,
+                tip: '4 pts per month entered, max 10 months' },
+              { label: 'Network',   value: credibilityScore.network_score   || 0, max: 15,
+                tip: '3 pts per connection, max 5' },
+              { label: 'Tenure',    value: credibilityScore.tenure_score    || 0, max: 15,
+                tip: '1 pt per 15 days on platform' }
+            ].map(({ label, value, max, tip }) => (
               <div key={label} style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0d1117' }}>{value}</div>
-                <div style={{ fontSize: '0.75rem', color: '#57606a' }}>{label} / {max}</div>
+                <div style={{ fontSize: '0.75rem', color: '#57606a', fontWeight: 600 }}>{label} / {max}</div>
                 <div style={{ marginTop: '0.375rem', background: '#eaeef2', borderRadius: '999px', height: '4px' }}>
                   <div style={{
                     width: `${(value / max) * 100}%`, height: '100%',
-                    background: '#0969da', borderRadius: '999px'
+                    background: scoreInfo.color, borderRadius: '999px',
+                    transition: 'width 0.4s ease'
                   }} />
+                </div>
+                <div style={{ fontSize: '0.6875rem', color: '#8c959f', marginTop: '0.375rem', lineHeight: 1.3 }}>
+                  {tip}
                 </div>
               </div>
             ))}
           </div>
-
-          <p style={{ fontSize: '0.75rem', color: '#57606a', textAlign: 'center', marginTop: '1rem', marginBottom: 0 }}>
-            Score is computed automatically by the platform based on your profile, connections, activity and time on platform.
-          </p>
         </div>
       </div>
 
-      {/* ── Bottom Grid: Revenue + Business Info + Clients ── */}
+      {/* ── Charts grid ── */}
       <div className="business-grid business-grid-2">
 
-        {/* Module 1: Revenue Chart */}
+        {/* Chart 1: Revenue Trend — Bar */}
         <div className="business-card">
           <div className="business-card-header">
             <h2 className="business-card-title">Revenue Trend</h2>
+            <span style={chartBadgeStyle('#2563eb')}>Bar chart</span>
           </div>
           <div className="business-card-body">
-            {revenue.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '2rem', color: '#57606a', fontSize: '0.875rem' }}>
-                No revenue data yet. Click Edit Analytics to add.
+            {hasData ? (
+              <div style={{ height: '200px' }}>
+                <Bar data={revenueChartData} options={revenueOptions} />
               </div>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.375rem', height: '160px' }}>
-                {revenue.map((item, i) => (
-                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.375rem' }}>
-                    <div style={{ fontSize: '0.625rem', fontWeight: 600, color: '#0d1117' }}>
-                      ₹{(item.revenue / 100000).toFixed(1)}L
-                    </div>
-                    <div style={{
-                      width: '100%',
-                      // Cap bar at 110px max so single-entry charts don't fill the whole space
-                      height: `${Math.min((item.revenue / maxRevenue) * 110, 110)}px`,
-                      background: 'linear-gradient(180deg, #2563eb, #1d4ed8)',
-                      borderRadius: '4px 4px 0 0', minHeight: '8px'
-                    }} />
-                    <div style={{ fontSize: '0.6rem', color: '#57606a' }}>
-                      {MONTHS[item.month - 1]}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <EmptyChart message="No data yet — add your first monthly entry above." />
             )}
           </div>
         </div>
 
-        {/* Module 2: Business Info */}
+        {/* Chart 2: Gross Profit Trend — Line */}
         <div className="business-card">
           <div className="business-card-header">
-            <h2 className="business-card-title">Business Info</h2>
+            <h2 className="business-card-title">Gross Profit Trend</h2>
+            <span style={chartBadgeStyle('#0891b2')}>Line chart</span>
           </div>
           <div className="business-card-body">
-            {[
-              { label: 'Founded',        value: businessInfo.founded_year    },
-              { label: 'Employees',      value: businessInfo.employee_count  },
-              { label: 'Business Type',  value: businessInfo.business_type   },
-              { label: 'Annual Turnover',value: businessInfo.annual_turnover }
-            ].map(({ label, value }) => (
-              <div key={label} style={{
-                display: 'flex', justifyContent: 'space-between',
-                padding: '0.625rem 0', borderBottom: '1px solid #eaeef2'
-              }}>
-                <span style={{ fontSize: '0.8125rem', color: '#57606a' }}>{label}</span>
-                <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0d1117' }}>
-                  {value || <span style={{ color: '#d0d7de' }}>—</span>}
-                </span>
+            {hasData ? (
+              <div style={{ height: '200px' }}>
+                <Line data={grossProfitChartData} options={grossProfitOptions} />
               </div>
-            ))}
+            ) : (
+              <EmptyChart message="Gross profit is calculated from your revenue × margin." />
+            )}
           </div>
         </div>
 
-        {/* Module 3: Client Base */}
+        {/* Chart 3: Month-on-Month Growth — Diverging Bar */}
         <div className="business-card">
           <div className="business-card-header">
-            <h2 className="business-card-title">Client Base</h2>
+            <h2 className="business-card-title">Month-on-Month Growth</h2>
+            <span style={chartBadgeStyle('#16a34a')}>Diverging bar</span>
           </div>
           <div className="business-card-body">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-              <div style={{ textAlign: 'center', padding: '1rem', background: '#f6f8fa', borderRadius: '6px' }}>
-                <div style={{ fontSize: '2rem', fontWeight: 700, color: '#0969da' }}>
-                  {clients.total_clients || 0}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#57606a' }}>Total Clients</div>
+            {hasData ? (
+              <div style={{ height: '200px' }}>
+                <Bar data={momChartData} options={momOptions} />
               </div>
-              <div style={{ textAlign: 'center', padding: '1rem', background: '#f6f8fa', borderRadius: '6px' }}>
-                <div style={{ fontSize: '2rem', fontWeight: 700, color: '#1a7f37' }}>
-                  {clients.repeat_client_percent ? `${parseFloat(clients.repeat_client_percent).toFixed(0)}%` : '0%'}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#57606a' }}>Repeat Clients</div>
+            ) : (
+              <EmptyChart message="Growth % is shown once you have 2 or more months of data." />
+            )}
+          </div>
+        </div>
+
+        {/* Chart 4: Client Count — Area */}
+        <div className="business-card">
+          <div className="business-card-header">
+            <h2 className="business-card-title">New Clients Per Month</h2>
+            <span style={chartBadgeStyle('#7c3aed')}>Area chart</span>
+          </div>
+          <div className="business-card-body">
+            {hasData ? (
+              <div style={{ height: '200px' }}>
+                <Line data={clientChartData} options={clientOptions} />
               </div>
-            </div>
-            {[
-              { label: 'Industries Served',  value: clients.industries_served    },
-              { label: 'Top Client Location',value: clients.top_client_location  }
-            ].map(({ label, value }) => (
-              <div key={label} style={{
-                display: 'flex', justifyContent: 'space-between',
-                padding: '0.625rem 0', borderBottom: '1px solid #eaeef2'
-              }}>
-                <span style={{ fontSize: '0.8125rem', color: '#57606a' }}>{label}</span>
-                <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0d1117' }}>
-                  {value || <span style={{ color: '#d0d7de' }}>—</span>}
-                </span>
-              </div>
-            ))}
+            ) : (
+              <EmptyChart message="Client count shows how many new clients you acquired each month." />
+            )}
           </div>
         </div>
 
       </div>
+
+      {/* ── Data table — shows raw entries so user knows what's been entered ── */}
+      {hasData && (
+        <div className="business-card" style={{ marginTop: '1.5rem' }}>
+          <div className="business-card-header">
+            <h2 className="business-card-title">Monthly Data Entries</h2>
+            <span style={{ fontSize: '0.75rem', color: '#57606a' }}>
+              {monthlyData.length} / 11 months entered
+            </span>
+          </div>
+          <div className="business-card-body" style={{ padding: 0 }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#f6f8fa', borderBottom: '1px solid #eaeef2' }}>
+                    {['Month', 'Revenue', 'Gross Profit Margin', 'Gross Profit', 'Clients', 'MoM Growth'].map(h => (
+                      <th key={h} style={{
+                        padding: '0.75rem 1.25rem', textAlign: 'left',
+                        fontSize: '0.75rem', fontWeight: 600,
+                        color: '#57606a', textTransform: 'uppercase'
+                      }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthlyData.map((row, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #eaeef2' }}>
+                      <td style={tdStyle}>{MONTHS[row.month - 1]} {row.year}</td>
+                      <td style={tdStyle}>₹{Number(row.revenue).toLocaleString('en-IN')}</td>
+                      <td style={tdStyle}>{row.gross_profit_margin}%</td>
+                      <td style={tdStyle}>₹{Number(row.gross_profit).toLocaleString('en-IN')}</td>
+                      <td style={tdStyle}>{row.client_count}</td>
+                      <td style={tdStyle}>
+                        {row.mom_growth === null ? (
+                          <span style={{ color: '#8c959f', fontSize: '0.8125rem' }}>—</span>
+                        ) : (
+                          <span style={{
+                            color: row.mom_growth >= 0 ? '#1a7f37' : '#cf1322',
+                            fontWeight: 600, fontSize: '0.875rem'
+                          }}>
+                            {row.mom_growth >= 0 ? '+' : ''}{row.mom_growth}%
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
 
-// ── Shared style helpers ──
+// ── Style helpers ──
 const labelStyle = {
   display: 'block', fontSize: '0.75rem',
   fontWeight: 600, color: '#57606a',
@@ -428,7 +609,21 @@ const inputStyle = {
   width: '100%', padding: '0.5rem 0.75rem',
   border: '1px solid #d0d7de', borderRadius: '6px',
   fontSize: '0.875rem', outline: 'none',
-  boxSizing: 'border-box'
+  boxSizing: 'border-box', background: 'white'
 };
+
+const tdStyle = {
+  padding: '0.875rem 1.25rem',
+  fontSize: '0.875rem',
+  color: '#0d1117'
+};
+
+const chartBadgeStyle = (color) => ({
+  fontSize: '0.6875rem', fontWeight: 600,
+  color: color, background: `${color}18`,
+  padding: '0.125rem 0.5rem',
+  borderRadius: '999px',
+  border: `1px solid ${color}30`
+});
 
 export default Analytics;

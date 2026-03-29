@@ -71,20 +71,45 @@ const acceptConnection = (req, res) => {
       return res.status(400).json({ message: "This request is no longer pending." });
     }
 
+
     connectionModel.updateRequestStatus(connection_id, "accepted", (err) => {
       if (err) return res.status(500).json({ message: "Failed to accept connection." });
 
-      // Emit to sender's personal room
-      // Room name MUST match: socket.join(`user_${userId}`) in server.js
-      const io = req.app.get("io");
-      io.to(`user_${connection.sender_id}`).emit("connection_accepted", {
-        connection_id,
-        accepted_by: user_id,
-        type: "accepted"
-      });
+      // Fetch acceptor's company name to include in notification
+      db.query(
+        "SELECT company_name FROM users WHERE id = ?",
+        [user_id],
+        (err, userResult) => {
+          if (err) return res.status(500).json({ message: "Server error." });
 
-      res.json({ message: "Connection accepted." });
+          const company_name = userResult[0]?.company_name || "A business";
+
+          db.query(
+            `INSERT INTO notifications (user_id, type, message)
+            VALUES (?, 'connection_accepted', ?)`,
+            [
+              connection.sender_id,
+              `${company_name} accepted your connection request.`
+            ],
+            (err, notifResult) => {
+              if (err) console.error("Failed to save notification:", err.message);
+
+              const io = req.app.get("io");
+              io.to(`user_${connection.sender_id}`).emit("connection_accepted", {
+                connection_id,
+                accepted_by:   user_id,
+                company_name,
+                type:          "accepted",
+                notification_id: notifResult ? notifResult.insertId : null
+              });
+
+              res.json({ message: "Connection accepted." });
+            }
+          );
+        }
+      );
     });
+    
   });
 };
 
@@ -113,7 +138,40 @@ const rejectConnection = (req, res) => {
 
     connectionModel.updateRequestStatus(connection_id, "rejected", (err) => {
       if (err) return res.status(500).json({ message: "Failed to reject connection." });
-      res.json({ message: "Connection rejected." });
+
+      // Fetch rejector's company name to include in notification
+      db.query(
+        "SELECT company_name FROM users WHERE id = ?",
+        [user_id],
+        (err, userResult) => {
+          if (err) return res.status(500).json({ message: "Server error." });
+
+          const company_name = userResult[0]?.company_name || "A business";
+
+          db.query(
+            `INSERT INTO notifications (user_id, type, message)
+            VALUES (?, 'connection_rejected', ?)`,
+            [
+              connection.sender_id,
+              `${company_name} declined your connection request.`
+            ],
+            (err, notifResult) => {
+              if (err) console.error("Failed to save notification:", err.message);
+
+              const io = req.app.get("io");
+              io.to(`user_${connection.sender_id}`).emit("connection_rejected", {
+                connection_id,
+                rejected_by:   user_id,
+                company_name,
+                type:          "rejected",
+                notification_id: notifResult ? notifResult.insertId : null
+              });
+
+              res.json({ message: "Connection rejected." });
+            }
+          );
+        }
+      );
     });
   });
 };

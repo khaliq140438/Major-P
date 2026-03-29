@@ -42,7 +42,8 @@ const getMyProfile = (req, res) => {
 // ================= GET PUBLIC PROFILE =================
 // Returns a business profile visible to other users.
 // Used when someone clicks on a business in Search or Connections.
-// Includes analytics data for credibility display.
+// Analytics section now uses analytics_monthly + analytics_credibility_score.
+// Old tables (analytics_revenue, analytics_business_info, analytics_clients) are gone.
 const getPublicProfile = (req, res) => {
   const { userId } = req.params;
 
@@ -76,70 +77,78 @@ const getPublicProfile = (req, res) => {
 
     const profile = results[0];
 
-    // Fetch analytics alongside the profile
-    const analyticsQuery = `
+    // ── Fetch monthly analytics data (last 10 months) ──
+    // Gross profit computed in SQL as revenue × margin / 100.
+    // MoM growth is computed in JS after fetch — same logic as analyticsController.
+    const monthlyQuery = `
+  SELECT * FROM (
+    SELECT
+      month,
+      year,
+      revenue,
+      gross_profit_margin,
+      client_count,
+      ROUND((revenue * gross_profit_margin / 100), 2) AS gross_profit
+    FROM analytics_monthly
+    WHERE user_id = ?
+    ORDER BY year DESC, month DESC
+    LIMIT 10
+  ) AS last10
+  ORDER BY year ASC, month ASC
+`;
+
+    // ── Fetch credibility score ──
+    const scoreQuery = `
       SELECT
-        r.month,
-        r.year,
-        r.revenue,
-        bi.founded_year,
-        bi.employee_count,
-        bi.business_type,
-        bi.annual_turnover,
-        cl.total_clients,
-        cl.repeat_client_percent,
-        cl.industries_served,
-        cs.total_score,
-        cs.profile_score,
-        cs.connection_score,
-        cs.activity_score,
-        cs.tenure_score
-      FROM users u
-      LEFT JOIN analytics_business_info bi ON u.id = bi.user_id
-      LEFT JOIN analytics_clients cl       ON u.id = cl.user_id
-      LEFT JOIN analytics_credibility_score cs ON u.id = cs.user_id
-      LEFT JOIN analytics_revenue r        ON u.id = r.user_id
-      WHERE u.id = ?
-      ORDER BY r.year ASC, r.month ASC
+        total_score,
+        profile_score,
+        analytics_score,
+        network_score,
+        tenure_score
+      FROM analytics_credibility_score
+      WHERE user_id = ?
     `;
 
-    db.query(analyticsQuery, [userId], (err, analyticsResults) => {
-      if (err) return res.status(500).json({ message: "Failed to fetch analytics." });
+    // Run both queries in parallel
+    Promise.all([
+      new Promise((resolve, reject) =>
+        db.query(monthlyQuery, [userId], (err, rows) => err ? reject(err) : resolve(rows))
+      ),
+      new Promise((resolve, reject) =>
+        db.query(scoreQuery, [userId], (err, rows) => err ? reject(err) : resolve(rows))
+      )
+    ])
+      .then(([monthlyRows, scoreRows]) => {
 
-      // Separate revenue rows from single-row analytics
-      const revenueData = analyticsResults.map(row => ({
-        month:   row.month,
-        year:    row.year,
-        revenue: row.revenue
-      })).filter(r => r.month !== null);
+        // Attach MoM growth to each monthly row
+        const monthlyData = monthlyRows.map((row, index) => {
+          if (index === 0) return { ...row, mom_growth: null };
+          const prev = monthlyRows[index - 1].revenue;
+          const curr = row.revenue;
+          if (!prev || prev === 0) return { ...row, mom_growth: null };
+          const growth = parseFloat((((curr - prev) / prev) * 100).toFixed(2));
+          return { ...row, mom_growth: growth };
+        });
 
-      const analyticsRow = analyticsResults[0] || {};
+        const credibilityScore = scoreRows[0] || {
+          total_score:     0,
+          profile_score:   0,
+          analytics_score: 0,
+          network_score:   0,
+          tenure_score:    0
+        };
 
-      res.json({
-        profile,
-        analytics: {
-          revenue:     revenueData,
-          businessInfo: {
-            founded_year:    analyticsRow.founded_year,
-            employee_count:  analyticsRow.employee_count,
-            business_type:   analyticsRow.business_type,
-            annual_turnover: analyticsRow.annual_turnover
-          },
-          clients: {
-            total_clients:          analyticsRow.total_clients,
-            repeat_client_percent:  analyticsRow.repeat_client_percent,
-            industries_served:      analyticsRow.industries_served
-          },
-          credibilityScore: {
-            total_score:      analyticsRow.total_score      || 0,
-            profile_score:    analyticsRow.profile_score    || 0,
-            connection_score: analyticsRow.connection_score || 0,
-            activity_score:   analyticsRow.activity_score   || 0,
-            tenure_score:     analyticsRow.tenure_score     || 0
+        res.json({
+          profile,
+          analytics: {
+            monthlyData,
+            credibilityScore
           }
-        }
+        });
+      })
+      .catch(() => {
+        res.status(500).json({ message: "Failed to fetch analytics." });
       });
-    });
   });
 };
 
@@ -189,17 +198,14 @@ const uploadLogo = (req, res) => {
     return res.status(400).json({ message: "No file uploaded." });
   }
 
-  // Full URL so frontend can display it directly
-  const serverUrl  = process.env.SERVER_URL || "http://localhost:5000";
+  const serverUrl   = process.env.SERVER_URL || "http://localhost:5000";
   const newLogoPath = `${serverUrl}/uploads/${req.file.filename}`;
 
-  // Get old logo to delete old file from disk
   db.query("SELECT logo FROM business_profiles WHERE user_id = ?", [userId], (err, results) => {
     if (err) return res.status(500).json({ message: "Failed to fetch current logo." });
 
     const oldLogo = results[0]?.logo;
 
-    // Safely delete old file — only if it's a local file path
     if (oldLogo && oldLogo.includes("/uploads/")) {
       try {
         const filename = oldLogo.split("/uploads/")[1];
@@ -208,19 +214,13 @@ const uploadLogo = (req, res) => {
           fs.unlinkSync(fullPath);
         }
       } catch (e) {
-        // File deletion failed — log but don't crash
         console.error("Could not delete old logo:", e.message);
       }
     }
 
-    // Save new logo URL to DB
     db.query("UPDATE business_profiles SET logo = ? WHERE user_id = ?", [newLogoPath, userId], (err) => {
       if (err) return res.status(500).json({ message: "Failed to save logo." });
-
-      res.json({
-        message: "Logo uploaded successfully.",
-        logo: newLogoPath
-      });
+      res.json({ message: "Logo uploaded successfully.", logo: newLogoPath });
     });
   });
 };

@@ -1,8 +1,11 @@
 // ================= IMPORTS =================
-const express    = require("express");
-const http       = require("http");
-const cors       = require("cors");
-const { Server } = require("socket.io");
+const express      = require("express");
+const http         = require("http");
+const cors         = require("cors");
+const { Server }   = require("socket.io");
+const helmet       = require("helmet");
+const cookieParser = require("cookie-parser");
+const rateLimit    = require("express-rate-limit");
 require("dotenv").config();
 
 // Database connection
@@ -17,6 +20,7 @@ const analyticsRoutes   = require("./routes/analyticsRoutes");
 const dashboardRoutes   = require("./routes/dashboardRoutes");
 const adminRoutes       = require("./routes/adminRoutes");
 const messageRoutes     = require("./routes/messageRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 
 // ================= APP SETUP =================
 const app  = express();
@@ -32,8 +36,30 @@ app.use(cors({
 }));
 
 // ================= MIDDLEWARE =================
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+})); // Provides essential HTTP security headers while allowing cross-origin image loads
+app.use(cookieParser()); // Enables reading HttpOnly cookies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ================= RATE LIMITING =================
+// Global rate limiting to prevent overall DDoS
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 300, 
+  message: { message: "Too many requests from this IP, please try again in 15 minutes." }
+});
+app.use(globalLimiter);
+
+// Strict rate limiting specifically for authentication to prevent brute-forcing passwords
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 15,
+  message: { message: "Too many authentication attempts. Please try again later." }
+});
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/register", authLimiter);
 
 // Serve uploaded files (logos, etc.)
 app.use("/uploads", express.static("uploads"));
@@ -47,6 +73,7 @@ app.use("/api/analytics",   analyticsRoutes);
 app.use("/api/dashboard",   dashboardRoutes);
 app.use("/api/admin",       adminRoutes);
 app.use("/api/messages",    messageRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // ================= ROOT ROUTE =================
 app.get("/", (req, res) => {
@@ -66,8 +93,24 @@ app.use((err, req, res, next) => {
   if (err.code === 'LIMIT_FILE_SIZE') {
     return res.status(400).json({ message: 'File too large. Maximum size is 5MB.' });
   }
-  console.error("Unhandled error:", err.stack);
-  res.status(500).json({ message: "Internal server error" });
+
+  // Handle common MySQL errors
+  if (err.code === 'ER_DUP_ENTRY') {
+    return res.status(409).json({ message: 'This record already exists in the system.' });
+  }
+  if (err.code === 'ER_DATA_TOO_LONG') {
+    return res.status(400).json({ message: 'Data provided exceeds maximum length allowed.' });
+  }
+
+  console.error(`[🚨 ERROR] ${req.method} ${req.originalUrl}`);
+  console.error(err.stack);
+
+  const statusCode = err.statusCode || 500;
+  const message = process.env.NODE_ENV === 'production' 
+    ? "An unexpected system error occurred. Please try again later."
+    : err.message || "Internal server error";
+
+  res.status(statusCode).json({ message, status: 'error' });
 });
 
 // ================= SOCKET.IO SETUP =================
