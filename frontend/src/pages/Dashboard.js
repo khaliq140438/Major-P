@@ -1,16 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../auth';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import socket from '../Socket';
 
 const Dashboard = () => {
-  const { user }    = useAuth();
-  const navigate    = useNavigate();
-  const [data,      setData]      = useState(null);
-  const [profile,   setProfile]   = useState(null);
-  const [loading,   setLoading]   = useState(true);
+  const { user }  = useAuth();
+  const navigate  = useNavigate();
+  const [data,    setData]    = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  // useCallback ensures loadData is stable — socket listeners
+  // always call the latest version without going stale
+  const loadData = useCallback(() => {
     if (user && user.role === 'business') {
       Promise.all([
         api.get('/dashboard'),
@@ -22,6 +25,32 @@ const Dashboard = () => {
         .finally(() => setLoading(false));
     }
   }, [user]);
+
+  // Load on mount and when user changes
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Socket listeners — reload dashboard when any relevant event fires
+  useEffect(() => {
+    // Defined outside socket.on so the same reference
+    // is used for both on and off — cleanup works correctly
+    const handleConnectionEvent = () => {
+      setTimeout(loadData, 500);
+    };
+
+    socket.on('connection_request',  handleConnectionEvent);
+    socket.on('connection_accepted', handleConnectionEvent);
+    socket.on('connection_rejected', handleConnectionEvent);
+    socket.on('receive_message', handleConnectionEvent);
+
+    return () => {
+      socket.off('connection_request',  handleConnectionEvent);
+      socket.off('connection_accepted', handleConnectionEvent);
+      socket.off('connection_rejected', handleConnectionEvent);
+      socket.off('receive_message', handleConnectionEvent);
+    };
+  }, [loadData]);
 
   const getProfileCompleteness = () => {
     if (!profile) return 0;
@@ -48,9 +77,9 @@ const Dashboard = () => {
       {/* ── KPI Cards ── */}
       <div className="business-grid business-grid-4" style={{ marginBottom: '1.5rem' }}>
         {[
-          { label: 'Total Connections', value: data.total_connections,  color: '#2563eb' },
-          { label: 'Pending Sent',      value: data.pending_sent,       color: '#ca8a04' },
-          { label: 'Pending Received',  value: data.pending_received,   color: '#7c3aed' },
+          { label: 'Total Connections', value: data.total_connections,    color: '#2563eb' },
+          { label: 'Pending Sent',      value: data.pending_sent,         color: '#ca8a04' },
+          { label: 'Pending Received',  value: data.pending_received,     color: '#7c3aed' },
           { label: 'Unread Messages',   value: data.unread_messages || 0, color: '#0891b2' }
         ].map(({ label, value, color }) => (
           <div key={label} className="business-card">
@@ -108,7 +137,6 @@ const Dashboard = () => {
             </button>
           </div>
           <div className="business-card-body">
-            {/* Avatar + Name */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
               <div style={{
                 width: '56px', height: '56px', borderRadius: '12px', flexShrink: 0,
@@ -132,7 +160,6 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Profile completeness bar */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.375rem' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>
@@ -153,7 +180,6 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* About snippet */}
             {profile.company_description && (
               <p style={{ fontSize: '0.875rem', color: '#475569', lineHeight: 1.6, marginTop: '1rem', marginBottom: 0 }}>
                 {profile.company_description.substring(0, 120)}
@@ -178,10 +204,10 @@ const Dashboard = () => {
           <div className="business-card-body">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {[
-                { label: 'Active Connections', value: data.total_connections,  action: () => navigate('/connections'), actionLabel: 'View All' },
-                { label: 'Requests Sent',      value: data.pending_sent,       action: null, actionLabel: null },
-                { label: 'Requests Received',  value: data.pending_received,   action: () => navigate('/connections'), actionLabel: 'Review' },
-                { label: 'Unread Messages',    value: data.unread_messages || 0, action: () => navigate('/messages'),   actionLabel: 'Open' }
+                { label: 'Active Connections', value: data.total_connections,    action: () => navigate('/connections'), actionLabel: 'View All' },
+                { label: 'Requests Sent',      value: data.pending_sent,         action: null,                           actionLabel: null        },
+                { label: 'Requests Received',  value: data.pending_received,     action: () => navigate('/connections'), actionLabel: 'Review'    },
+                { label: 'Unread Messages',    value: data.unread_messages || 0, action: () => navigate('/messages'),    actionLabel: 'Open'      }
               ].map(({ label, value, action, actionLabel }) => (
                 <div key={label} style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',

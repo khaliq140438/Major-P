@@ -20,6 +20,38 @@ const AdminUsers = () => {
     }
   };
 
+  const handleSuspend = async (userId) => {
+    if (!window.confirm("Are you sure you want to suspend this user? They will lose all login access.")) return;
+    try {
+      await api.post('/admin/users/suspend', { userId });
+      loadUsers();
+    } catch (err) {
+      alert("Failed to suspend user: " + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleUnsuspend = async (userId) => {
+    if (!window.confirm("Restore this user's platform access?")) return;
+    try {
+      await api.post('/admin/users/unsuspend', { userId });
+      loadUsers();
+    } catch (err) {
+      alert("Failed to restore user: " + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleRemove = async (userId) => {
+    if (!window.confirm("CRITICAL WARNING: Are you sure you want to PERMANENTLY delete this user? All their profile data, connections, and analytics will be irrevocably destroyed.")) return;
+    if (!window.confirm("FINAL CONFIRMATION: This action CANNOT be undone.")) return;
+    
+    try {
+      await api.delete('/admin/users/remove', { data: { userId } });
+      loadUsers();
+    } catch (err) {
+      alert("Failed to permanently delete user: " + (err.response?.data?.message || err.message));
+    }
+  };
+
   const filteredUsers = users.filter(u =>
     u.company_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     u.industry?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -90,7 +122,7 @@ const AdminUsers = () => {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: '#f6f8fa', borderBottom: '1px solid #eaeef2' }}>
-                    {['ID', 'Company', 'Email', 'Industry', 'Location', 'Status', 'Joined'].map(h => (
+                    {['ID', 'Company', 'Email', 'Industry', 'Location', 'Status', 'Joined', 'Actions'].map(h => (
                       <th key={h} style={{
                         padding: '0.75rem 1.25rem', textAlign: 'left',
                         fontSize: '0.75rem', fontWeight: 600,
@@ -119,8 +151,8 @@ const AdminUsers = () => {
                       </td>
                       <td style={{ padding: '0.875rem 1.25rem' }}>
                         <span style={{
-                          background: user.account_status === 'approved' ? '#dcfce7' : user.account_status === 'rejected' ? '#fee2e2' : '#fef9c3',
-                          color:      user.account_status === 'approved' ? '#14532d' : user.account_status === 'rejected' ? '#7f1d1d' : '#713f12',
+                          background: user.account_status === 'approved' ? '#dcfce7' : user.account_status === 'rejected' ? '#fee2e2' : user.account_status === 'suspended' ? '#f3e8ff' : '#fef9c3',
+                          color:      user.account_status === 'approved' ? '#14532d' : user.account_status === 'rejected' ? '#7f1d1d' : user.account_status === 'suspended' ? '#6b21a8' : '#713f12',
                           padding: '0.25rem 0.625rem', borderRadius: '999px',
                           fontSize: '0.75rem', fontWeight: 600, textTransform: 'capitalize'
                         }}>
@@ -129,6 +161,42 @@ const AdminUsers = () => {
                       </td>
                       <td style={{ padding: '0.875rem 1.25rem', fontSize: '0.8125rem', color: '#57606a' }}>
                         {new Date(user.created_at).toLocaleDateString()}
+                      </td>
+                      <td style={{ padding: '0.875rem 1.25rem', display: 'flex', gap: '0.5rem' }}>
+                        
+                        {user.account_status === 'approved' && (
+                          <button 
+                            onClick={() => handleSuspend(user.id)}
+                            style={{
+                              background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a',
+                              padding: '0.375rem 0.75rem', borderRadius: '6px', fontSize: '0.75rem',
+                              fontWeight: 600, cursor: 'pointer', transition: '0.2s'
+                            }}>
+                            Suspend
+                          </button>
+                        )}
+
+                        {user.account_status === 'suspended' && (
+                          <button 
+                            onClick={() => handleUnsuspend(user.id)}
+                            style={{
+                              background: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0',
+                              padding: '0.375rem 0.75rem', borderRadius: '6px', fontSize: '0.75rem',
+                              fontWeight: 600, cursor: 'pointer', transition: '0.2s'
+                            }}>
+                            Unsuspend
+                          </button>
+                        )}
+
+                        <button 
+                          onClick={() => handleRemove(user.id)}
+                          style={{
+                            background: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca',
+                            padding: '0.375rem 0.75rem', borderRadius: '6px', fontSize: '0.75rem',
+                            fontWeight: 600, cursor: 'pointer', transition: '0.2s'
+                          }}>
+                          Remove
+                        </button>
                       </td>
                     </tr>
                   ))}

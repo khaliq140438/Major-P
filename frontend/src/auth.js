@@ -1,54 +1,60 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { jwtDecode } from 'jwt-decode';
+import api from './api';
 import socket from './Socket';
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [user,  setUser]  = useState(null);
-  const [token, setToken] = useState(null);
+  const [user,    setUser]    = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    if (storedToken) {
-      setToken(storedToken);
+    // Ping backend on startup to see if we have an active HttpOnly session cookie
+    const fetchUser = async () => {
       try {
-        const decoded = jwtDecode(storedToken);
-        setUser({ id: decoded.id, role: decoded.role });
-        // Connect socket and join personal room
-        connectSocket(decoded.id);
-      } catch {
+        const res = await api.get('/auth/me');
+        if (res.data && res.data.user) {
+          setUser(res.data.user);
+          connectSocket(res.data.user.id);
+        }
+      } catch (error) {
+        // 401 Unauthorized means no active cookie, user is logged out
         setUser(null);
+      } finally {
+        setLoading(false);
       }
-    }
+    };
+    
+    fetchUser();
   }, []);
 
   const connectSocket = (userId) => {
     if (!socket.connected) {
       socket.connect();
     }
-    // Join personal room so this user receives real-time events
     socket.emit('join_user', userId);
   };
 
-  const login = (token) => {
-    localStorage.setItem('token', token);
-    setToken(token);
-    const decoded = jwtDecode(token);
-    setUser({ id: decoded.id, role: decoded.role });
-    connectSocket(decoded.id);
+  const login = (userData) => {
+    // The HttpOnly cookie is automatically handled by the browser
+    // We just need to update React state
+    setUser(userData);
+    connectSocket(userData.id);
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    setToken(null);
+  const logout = async () => {
+    try {
+      // Tell backend to clear the HttpOnly cookie
+      await api.post('/auth/logout');
+    } catch (error) {
+      console.error("Logout error", error);
+    }
     setUser(null);
-    // Disconnect socket on logout
     socket.disconnect();
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

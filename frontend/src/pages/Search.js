@@ -1,20 +1,34 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import socket from '../Socket';
+import { Search as SearchIcon, MapPin, Factory, ChevronRight, Check } from 'lucide-react';
 
 // Avatar color per business id
 const avatarColor = (id) => {
-  const colors = ['#2563eb','#16a34a','#7c3aed','#ca8a04','#dc2626','#0891b2'];
+  const colors = ['#2563eb', '#16a34a', '#7c3aed', '#ca8a04', '#dc2626', '#0891b2'];
   return colors[(id || 0) % colors.length];
 };
 
 const Search = () => {
-  const [query,    setQuery]    = useState('');
-  const [results,  setResults]  = useState([]);
-  const [loading,  setLoading]  = useState(false);
-  const navigate                = useNavigate();
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  useEffect(() => { loadAllBusinesses(); }, []);
+  useEffect(() => {
+    loadAllBusinesses();
+
+    // When any connection is accepted, reload the list
+    // so connection status badges update automatically
+    socket.on('connection_accepted', () => {
+      loadAllBusinesses();
+    });
+
+    return () => {
+      socket.off('connection_accepted');
+    };
+  }, []);
 
   const loadAllBusinesses = async () => {
     setLoading(true);
@@ -93,7 +107,9 @@ const Search = () => {
       ) : results.length === 0 ? (
         <div className="business-card">
           <div className="business-card-body" style={{ textAlign: 'center', padding: '3rem' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🔍</div>
+            <div style={{ marginBottom: '0.75rem', display: 'flex', justifyContent: 'center' }}>
+              <SearchIcon size={32} color="#94a3b8" />
+            </div>
             <div style={{ fontWeight: 600, color: '#0d1117', marginBottom: '0.375rem' }}>
               {query ? 'No results found' : 'No businesses available'}
             </div>
@@ -138,13 +154,13 @@ const Search = () => {
                 {/* Details */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
                   {item.industry && (
-                    <div style={{ fontSize: '0.8125rem', color: '#57606a' }}>
-                      🏭 {item.industry}
+                    <div style={{ fontSize: '0.8125rem', color: '#57606a', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                      <Factory size={14} /> {item.industry}
                     </div>
                   )}
                   {item.location && (
-                    <div style={{ fontSize: '0.8125rem', color: '#57606a' }}>
-                      📍 {item.location}
+                    <div style={{ fontSize: '0.8125rem', color: '#57606a', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                      <MapPin size={14} /> {item.location}
                     </div>
                   )}
                   {item.company_description && (
@@ -158,9 +174,9 @@ const Search = () => {
                 {/* View Profile link */}
                 <div style={{
                   fontSize: '0.75rem', color: '#2563eb', fontWeight: 500,
-                  marginBottom: '0.75rem'
+                  marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem'
                 }}>
-                  View profile & analytics →
+                  View profile & analytics <ChevronRight size={14} />
                 </div>
 
                 {/* Connect button */}
@@ -168,9 +184,10 @@ const Search = () => {
                   <div style={{
                     textAlign: 'center', padding: '0.5rem',
                     background: '#dcfce7', color: '#14532d',
-                    borderRadius: '6px', fontSize: '0.8125rem', fontWeight: 600
+                    borderRadius: '6px', fontSize: '0.8125rem', fontWeight: 600,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem'
                   }}>
-                    ✓ Connected
+                    <Check size={14} /> Connected
                   </div>
                 ) : item.connection_status === 'pending' ? (
                   <div style={{
