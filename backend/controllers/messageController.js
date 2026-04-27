@@ -84,7 +84,7 @@ exports.sendMessage = (req, res) => {
         };
 
         const io = req.app.get("io");
-        io.to(`conversation_${conversation_id}`).emit("receive_message", messageData);
+        io.to(`conversation_${conversation_id}`).to(`user_${receiver_id}`).emit("receive_message", messageData);
 
         res.status(201).json({
           message: "Message sent.",

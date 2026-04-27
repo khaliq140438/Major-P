@@ -34,12 +34,11 @@ const sendConnection = (req, res) => {
         return res.status(500).json({ message: "Failed to send connection request." });
       }
 
-      // Emit to receiver's personal room
-      // Room name MUST match: socket.join(`user_${userId}`) in server.js
+      // Emit to both receiver and sender personal rooms
       const io = req.app.get("io");
-      io.to(`user_${receiver_id}`).emit("connection_request", {
+      io.to(`user_${receiver_id}`).to(`user_${sender_id}`).emit("connection_request", {
         sender_id,
-        receiver_id,
+        receiver_id: Number(receiver_id),
         type: "new_request"
       });
 

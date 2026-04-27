@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
 import socket from '../Socket';
@@ -9,6 +9,7 @@ import './Messages.css';
 const Messages = () => {
   const { user }                                          = useAuth();
   const location                                          = useLocation();
+  const navigate                                          = useNavigate();
   const [conversations, setConversations]                 = useState([]);
   const [connections, setConnections]                     = useState([]);
   const [selectedConversation, setSelectedConversation]   = useState(null);
@@ -72,11 +73,15 @@ const Messages = () => {
   // Handle navigation from Profile/Connections with a target user
   useEffect(() => {
     if (location.state?.openUserId && (conversations.length > 0 || connections.length > 0)) {
-      const existingConv = conversations.find(c => c.other_user_id === location.state.openUserId);
+      const targetUserId = location.state.openUserId;
+      // Clear state via React Router so it doesn't re-trigger infinitely on component updates
+      navigate(location.pathname, { replace: true, state: {} });
+
+      const existingConv = conversations.find(c => c.other_user_id === targetUserId);
       if (existingConv) {
         handleSelectChat(existingConv);
       } else {
-        const unconnectedUser = connections.find(c => c.connected_user_id === location.state.openUserId);
+        const unconnectedUser = connections.find(c => c.connected_user_id === targetUserId);
         if (unconnectedUser) {
           handleSelectChat({
             conversation_id: null,
@@ -86,10 +91,8 @@ const Messages = () => {
           });
         }
       }
-      // Clear state so it doesn't re-trigger
-      window.history.replaceState({}, document.title);
     }
-  }, [location.state, conversations, connections]);
+  }, [location.state, location.pathname, conversations, connections, navigate]);
 
   useEffect(() => { scrollToBottom(); }, [messages]);
 
